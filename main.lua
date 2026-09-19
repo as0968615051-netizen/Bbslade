@@ -5,8 +5,7 @@
 
 local Bbslade = {}
 local CoreGui = game:GetService("CoreGui")
-local BASE_URL = "https://raw.githubusercontent.com/as0968615051-netizen/Bbslade/main/Components/"
-
+local BASE_URL = "https://raw.githubusercontent.com/as0968615051-netizen/Bbslade/main/src/Components/"
 -- 1. 防重複載入舊視窗
 if CoreGui:FindFirstChild("Bbslade") then
     CoreGui.Bbslade:Destroy()
