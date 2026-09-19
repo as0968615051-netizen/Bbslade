@@ -4,9 +4,10 @@
 -- ===================================================================
 
 local Bbslade = {}
+local CoreGui = game:GetService("CoreGui")
+local BASE_URL = "https://raw.githubusercontent.com/as0968615051-netizen/Bbslade/main/Components/"
 
 -- 1. 防重複載入舊視窗
-local CoreGui = game:GetService("CoreGui")
 if CoreGui:FindFirstChild("Bbslade") then
     CoreGui.Bbslade:Destroy()
 end
@@ -58,11 +59,20 @@ function Bbslade:CreateWindow(title)
     for prop, val in pairs(Style.MainFrame) do mainFrame[prop] = val end
     mainFrame.Parent = gui
 
+    -- 圓角
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 12)
+    mainCorner.Parent = mainFrame
+
     -- 標題列
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
-    for prop, val in pairs(Style.TitleBar) do titleBar[prop] = val end
+    for prop, val in pairs(Style.Style or Style.TitleBar) do titleBar[prop] = val end
     titleBar.Parent = mainFrame
+
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 12)
+    titleCorner.Parent = titleBar
 
     local titleText = Instance.new("TextLabel")
     titleText.Name = "TitleText"
@@ -81,47 +91,36 @@ function Bbslade:CreateWindow(title)
     listLayout.SortOrder = Enum.SortOrder.LayoutOrder
     listLayout.Parent = container
 
-    -- 4. 為這個視窗掛載 AddToggle API (檢視外部是否有呼叫 Toggle)
-    function windowObj:AddToggle(config)
-        local state = config.DefaultState or false
-        local labelText = config.Text or "Option"
+    -- 4. 動態綁定 API (取代原本寫死的 function windowObj:AddToggle)
+    local loadedComponents = {}
 
-        local button = Instance.new("TextButton")
-        button.Name = labelText .. "_Toggle"
-        button.Size = UDim2.new(1, 0, 0, 32)
-        button.BorderSizePixel = 0
-        button.Font = Enum.Font.Code
-        button.TextSize = 13
-        button.Parent = container
+    setmetatable(windowObj, {
+        __index = function(_, key)
+            -- 當外部呼叫 Window:AddToggle() 或 Window:AddSlider() 時自動攔截
+            if key:sub(1, 3) == "Add" then
+                local componentName = key:sub(4) -- 取得 "Toggle" 或 "Slider"
 
-        local function updateVisual()
-            if state then
-                button.Text = labelText .. " [ON]"
-                button.TextColor3 = Color3.fromRGB(255, 255, 255)
-                button.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
-            else
-                button.Text = labelText .. " [OFF]"
-                button.TextColor3 = Color3.fromRGB(120, 120, 120)
-                button.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
+                return function(self, config)
+                    -- 如果沒載入過，自動向上去 GitHub Components/ 抓該組件
+                    if not loadedComponents[componentName] then
+                        local success, code = pcall(function()
+                            return game:HttpGet(BASE_URL .. componentName .. ".lua")
+                        end)
+                        
+                        if success then
+                            loadedComponents[componentName] = loadstring(code)()
+                        else
+                            warn("[Bbslade] 找不到組件檔案: Components/" .. componentName .. ".lua")
+                            return nil
+                        end
+                    end
+
+                    -- 把容器 container 傳給獨立的組件做繪製
+                    return loadedComponents[componentName].Create(container, config)
+                end
             end
         end
-
-        updateVisual()
-
-        -- 點擊觸發外部傳入的 On / Off
-        button.MouseButton1Click:Connect(function()
-            state = not state
-            updateVisual()
-
-            if state then
-                if type(config.On) == "function" then config.On() end
-            else
-                if type(config.Off) == "function" then config.Off() end
-            end
-        end)
-
-        return button
-    end
+    })
 
     return windowObj
 end
