@@ -30,21 +30,27 @@ function ToggleModule.Create(parent, config)
     local slot = Instance.new("Frame")
     slot.Size = UDim2.new(0, 44, 0, 20)
     slot.Position = UDim2.new(1, -52, 0.5, -10)
-    slot.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- 設定為純白，由 UIGradient 來上色
+    slot.BackgroundColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(30, 30, 35)
     slot.BorderSizePixel = 0
     slot.ClipsDescendants = true
     slot.Parent = track
 
-    -- 4. 建立紅橙黃綠藍紫的彩色漸層 (UIGradient)
+    -- 膠囊大圓角 (Slot)
+    local slotCorner = Instance.new("UICorner")
+    slotCorner.CornerRadius = UDim.new(1, 0)
+    slotCorner.Parent = slot
+
+    -- 4. 彩色漸層 (UIGradient)
     local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 60, 60)),   -- 紅
         ColorSequenceKeypoint.new(0.25, Color3.fromRGB(255, 165, 0)),  -- 橙
         ColorSequenceKeypoint.new(0.50, Color3.fromRGB(255, 230, 60)),  -- 黃
         ColorSequenceKeypoint.new(0.75, Color3.fromRGB(60, 235, 100)),  -- 綠
-        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 60, 60))   -- 回到紅 (銜接流動)
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 60, 60))   -- 紅
     })
-    gradient.Rotation = 45 -- 傾斜 45 度流動更有質感
+    gradient.Rotation = 45
+    gradient.Enabled = state -- 預設根據 state 決定是否啟用漸層
     gradient.Parent = slot
 
     -- 5. 切換滑塊 (Knob)
@@ -55,6 +61,11 @@ function ToggleModule.Create(parent, config)
     knob.BorderSizePixel = 0
     knob.Parent = slot
 
+    -- 圓形滑塊 (Knob)
+    local knobCorner = Instance.new("UICorner")
+    knobCorner.CornerRadius = UDim.new(1, 0)
+    knobCorner.Parent = knob
+
     -- 6. 透明點擊熱區
     local clickArea = Instance.new("TextButton")
     clickArea.Size = UDim2.new(1, 0, 1, 0)
@@ -62,24 +73,32 @@ function ToggleModule.Create(parent, config)
     clickArea.Text = ""
     clickArea.Parent = track
 
-    -- 7. 背景彩虹流動控制 (使用 Offset 動畫循環)
-    -- 開啟時預設啟動流動，關閉時降低透明度
-    gradient.Enabled = true
-    
-    task.spawn(function()
-        local speed = 0.5 -- 流動速度
-        local offset = 0
-        while track and track.Parent do
-            local dt = RunService.RenderStepped:Wait()
-            if state then
-                offset = (offset + dt * speed) % 1
-                gradient.Offset = Vector2.new(offset, 0)
-            end
+    -- 7. 背景彩虹流動動畫
+    local renderConn
+    local offset = 0
+    local speed = 0.5
+
+    renderConn = RunService.RenderStepped:Connect(function(dt)
+        if not track or not track.Parent then
+            if renderConn then renderConn:Disconnect() end
+            return
+        end
+
+        if state then
+            offset = (offset + dt * speed) % 1
+            gradient.Offset = Vector2.new(offset, 0)
         end
     end)
 
-    -- 8. 動畫設定：從慢到快 (EaseIn)
-    local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+    -- 當物件被 Destroy 時自動斷開連線
+    track.Destroying:Connect(function()
+        if renderConn then
+            renderConn:Disconnect()
+        end
+    end)
+
+    -- 8. 動畫設定：先快後慢 (EaseOut 體驗較佳)
+    local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
     -- 9. 點擊切換邏輯
     clickArea.MouseButton1Click:Connect(function()
@@ -89,14 +108,11 @@ function ToggleModule.Create(parent, config)
         local targetKnobColor = state and Color3.fromRGB(20, 20, 24) or Color3.fromRGB(100, 100, 100)
         local targetLabelColor = state and Color3.fromRGB(240, 240, 240) or Color3.fromRGB(140, 140, 140)
 
-        -- 關閉時背景變暗，開啟時亮起彩虹
-        if not state then
-            slot.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-        else
-            slot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        end
+        -- 開關彩虹漸層啟用狀態
+        gradient.Enabled = state
+        slot.BackgroundColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(30, 30, 35)
 
-        -- 滑塊移動 EaseIn 動畫
+        -- 動畫平滑過渡
         TweenService:Create(knob, tweenInfo, {
             Position = targetKnobPos,
             BackgroundColor3 = targetKnobColor
