@@ -6,9 +6,13 @@
 local Bbslade = {}
 local CoreGui = game:GetService("CoreGui")
 
-local RAW_BASE = "https://raw.githubusercontent.com/as0968615051-netizen/Bbslade/main/src/"
-local COMPONENTS_URL = RAW_BASE .. "Components/"
-local LOGO_URL = RAW_BASE .. "logo.png"
+local RAW_BASE = "https://raw.githubusercontent.com/as0968615051-netizen/Bbslade/main/"
+
+-- 指向 src/Components/
+local COMPONENTS_URL = RAW_BASE .. "src/Components/"
+
+-- 指向 src/logo.png
+local LOGO_URL = RAW_BASE .. "src/logo.png"
 
 -- 1. 防重複載入舊視窗
 if CoreGui:FindFirstChild("Bbslade") then
